@@ -1,166 +1,140 @@
 <?php
-// 1. CONEXIÓN Y LÓGICA (Siempre al principio)
+// 1. EL CEREBRO: CONEXIÓN Y LÓGICA DE DATOS
 include("conexion.php");
 
-// --- BLOQUE PARA ELIMINAR ---
+// --- ELIMINAR ---
 if (isset($_GET['id_borrar'])) {
     $id = $_GET['id_borrar'];
-    try {
-        $sentencia_borrar = $conexion->prepare("DELETE FROM inventario WHERE id = :id");
-        $sentencia_borrar->bindParam(':id', $id);
-        $sentencia_borrar->execute();
-        // Redireccionamos para limpiar la URL y evitar errores
-        header("Location: index.php");
-        exit;
-    } catch (Exception $e) {
-        echo "Error al eliminar: " . $e->getMessage();
-    }
+    $sentencia = $conexion->prepare("DELETE FROM inventario WHERE id = :id");
+    $sentencia->execute([':id' => $id]);
+    header("Location: index.php");
+    exit;
 }
 
-// --- BLOQUE PARA GUARDAR ---
-if ($_POST) {
-    $prenda = $_POST['prenda'];
-    $talla  = $_POST['talla'];
-    $color  = $_POST['color'];
-    $precio = $_POST['precio'];
-    $stock  = $_POST['stock'];
-
-    try {
-        $sql = "INSERT INTO inventario (prenda, talla, color, precio, stock) 
-                VALUES (:prenda, :talla, :color, :precio, :stock)";
-        $sentencia = $conexion->prepare($sql);
-        $sentencia->execute([
-            ':prenda' => $prenda,
-            ':talla'  => $talla,
-            ':color'  => $color,
-            ':precio' => $precio,
-            ':stock'  => $stock
-        ]);
-        // Redireccionamos tras guardar para que al refrescar NO se duplique la prenda
-        header("Location: index.php");
-        exit;
-    } catch (Exception $e) {
-        echo "Error al guardar: " . $e->getMessage();
-    }
+// --- GUARDAR ---
+if ($_POST && isset($_POST['prenda']) && !isset($_POST['id_editar'])) {
+    $sql = "INSERT INTO inventario (prenda, talla, color, precio, stock) VALUES (?, ?, ?, ?, ?)";
+    $conexion->prepare($sql)->execute([$_POST['prenda'], $_POST['talla'], $_POST['color'], $_POST['precio'], $_POST['stock']]);
+    header("Location: index.php");
+    exit;
 }
 
-// --- BLOQUE PARA LEER (Consultar datos) ---
-$sentencia_leer = $conexion->prepare("SELECT * FROM inventario");
-$sentencia_leer->execute();
-$lista_ropa = $sentencia_leer->fetchAll(PDO::FETCH_ASSOC);
+// --- ACTUALIZAR (UPDATE) ---
+if (isset($_POST['id_editar'])) {
+    $sql = "UPDATE inventario SET prenda=?, talla=?, color=?, precio=?, stock=? WHERE id=?";
+    $conexion->prepare($sql)->execute([$_POST['prenda'], $_POST['talla'], $_POST['color'], $_POST['precio'], $_POST['stock'], $_POST['id_editar']]);
+    header("Location: index.php");
+    exit;
+}
+
+// --- CONSULTA ---
+$lista_ropa = $conexion->query("SELECT * FROM inventario ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+
+// Totales para el resumen
+$total_prendas = array_sum(array_column($lista_ropa, 'stock'));
+$total_dinero = array_sum(array_column($lista_ropa, 'precio'));
 ?>
 
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Inventario UMC</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MultiStock - UMC</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 40px; background-color: #f8f9fa; color: #333; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        h2 { color: #0056b3; text-align: center; }
-        form { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px; padding: 20px; border: 1px solid #eee; border-radius: 8px; }
-        .full-width { grid-column: span 2; }
-        label { font-weight: bold; margin-bottom: -10px; }
-        input, select { padding: 10px; border: 1px solid #ddd; border-radius: 6px; }
-        button.btn-guardar { grid-column: span 2; background-color: #28a745; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-size: 16px; }
-        button.btn-guardar:hover { background-color: #218838; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 12px; border-bottom: 1px solid #eee; text-align: left; }
-        th { background-color: #0056b3; color: white; }
-        .btn-delete { background-color: #dc3545; color: white; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-size: 13px; }
-        .btn-edit { background-color: #ffc107; color: black; padding: 6px 12px; text-decoration: none; border-radius: 4px; font-size: 13px; margin-right: 5px; }
+        /* CSS ORIGINAL DE TU COMPAÑERO */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body{ font-family: Arial, sans-serif; background: linear-gradient(135deg, blue, cyan); display: flex; justify-content: center; align-items: center; min-height: 100vh; color: #444; padding: 20px; }
+        .container{ background: #ffffff; box-shadow: 0 8px 15px rgba(0,0,0,0.2); border-radius: 12px; padding: 30px; width: 100%; max-width: 500px; text-align: center; animation: fadeIn 0.5s ease-in-out; }
+        h1{ font-size: 1.8rem; color: #333; margin-bottom: 20px; font-weight: bold; }
+        .todo-input{ width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; font-size: 16px; transition: border-color 0.3s; }
+        .todo-input:focus{ outline: none; border-color: #6a11cb; box-shadow: 0 0 5px rgba(106, 17, 203, 0.2); }
+        .add-btn{ width: 100%; padding: 12px; background: linear-gradient(135deg, blue, cyan); color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; font-weight: bold; transition: transform 0.2s; }
+        .add-btn:hover{ transform: scale(1.02); }
+        .error-message{ color: #e63946; font-size: 14px; margin-bottom: 15px; background: #ffe6e6; padding: 8px; border-radius: 4px; display: none; }
+        .todo-list{ list-style: none; padding: 0; margin-top: 20px; }
+        .todo-item{ display: flex; justify-content: space-between; align-items: center; background: #f5f5f5; padding: 12px; border: 1px solid #ddd; border-radius: 6px; margin: 10px 0; transition: box-shadow 0.3s; }
+        .todo-item:hover{ box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .todo-text{ flex-grow: 1; text-align: left; font-size: 14px; }
+        .edit-btn, .delete-btn, .save-btn{ border: none; border-radius: 6px; padding: 6px 12px; font-size: 13px; cursor: pointer; color: white; transition: transform 0.2s; margin-left: 5px; }
+        .edit-btn{ background-color: #6c66ff; }
+        .delete-btn{ background-color: #e63946; text-decoration: none; display: inline-block; }
+        .save-btn{ background-color: #2ecc71; }
+        .edit-btn:hover, .delete-btn:hover, .save-btn:hover { transform: scale(1.1); }
+        .resumen { margin-top: 20px; display: flex; justify-content: space-between; font-weight: bold; background: #e0f7fa; padding: 10px; border-radius: 6px; font-size: 14px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>👕 Sistema de Inventario de Ropa</h2>
-    
+    <h1>Inventario</h1>
+    <div id="errorMessage" class="error-message"></div>
+
+    <!-- ENTRADA DE DATOS -->
     <form action="index.php" method="post">
-        <div class="full-width">
-            <label>Nombre de la Prenda:</label>
-            <input type="text" name="prenda" required placeholder="Ej. Franela Deportiva">
+        <input type="text" name="prenda" class="todo-input" placeholder="Prenda..." required>
+        <div style="display: flex; gap: 5px;">
+            <input type="text" name="talla" class="todo-input" placeholder="Talla" required>
+            <input type="text" name="color" class="todo-input" placeholder="Color" required>
         </div>
-        <div>
-            <label>Talla:</label>
-            <select name="talla">
-                <option value="S">S</option>
-                <option value="M">M</option>
-                <option value="L">L</option>
-                <option value="XL">XL</option>
-            </select>
+        <div style="display: flex; gap: 5px;">
+            <input type="number" step="0.01" name="precio" class="todo-input" placeholder="Precio $" required>
+            <input type="number" name="stock" class="todo-input" placeholder="Stock" required>
         </div>
-        <div>
-            <label>Color:</label>
-            <input type="text" name="color" required placeholder="Azul, Rojo...">
-        </div>
-        <div>
-            <label>Precio ($):</label>
-            <input type="number" step="0.01" name="precio" required placeholder="0.00">
-        </div>
-        <div>
-            <label>Stock:</label>
-            <input type="number" name="stock" required placeholder="Cantidad">
-        </div>
-        <button type="submit" class="btn-guardar">Guardar Prenda en Inventario</button>
+        <button type="submit" class="add-btn">Enter</button>
     </form>
 
-    <hr>
+    <!-- LISTA DE PRENDAS -->
+    <ul class="todo-list">
+        <?php foreach($lista_ropa as $ropa): ?>
+            <li class="todo-item" id="item-<?php echo $ropa['id']; ?>">
+                <div class="todo-text">
+                    <strong><?php echo $ropa['prenda']; ?></strong><br>
+                    <small><?php echo "T: {$ropa['talla']} | {$ropa['color']} | \${$ropa['precio']} | Stock: {$ropa['stock']}"; ?></small>
+                </div>
+                <div>
+                    <button class="edit-btn" onclick='activarEdicion(<?php echo json_encode($ropa); ?>)'>Edit</button>
+                    <a href="index.php?id_borrar=<?php echo $ropa['id']; ?>" class="delete-btn" onclick="return confirm('¿Eliminar?')">Delete</a>
+                </div>
+            </li>
+        <?php endforeach; ?>
+    </ul>
 
-    <h3>📦 Existencias en Almacén</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Prenda</th>
-                <th>Talla</th>
-                <th>Color</th>
-                <th>Precio</th>
-                <th>Stock</th>
-                <th>Acciones</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php foreach($lista_ropa as $ropa) { ?>
-            <tr>
-                <td><?php echo $ropa['id']; ?></td>
-                <td><?php echo $ropa['prenda']; ?></td>
-                <td><?php echo $ropa['talla']; ?></td>
-                <td><?php echo $ropa['color']; ?></td>
-                <td>$<?php echo number_format($ropa['precio'], 2); ?></td>
-                <td><?php echo $ropa['stock']; ?></td>
-                <td>
-                    <a href="#" class="btn-edit">Editar</a>
-                    <a href="index.php?id_borrar=<?php echo $ropa['id']; ?>" 
-                       class="btn-delete" 
-                       onclick="return confirm('¿Estás seguro de eliminar esta prenda?')">
-                       Eliminar
-                    </a>
-                </td>
-            </tr>
-            <?php } ?>
-        </tbody>
-    </table>
-    <?php
-// Extraemos solo los precios y los stocks en listas separadas
-$todos_los_precios = array_column($lista_ropa, 'precio');
-$todos_los_stocks = array_column($lista_ropa, 'stock');
-
-// Sumamos los valores
-$total_dinero = array_sum($todos_los_precios);
-$total_prendas = array_sum($todos_los_stocks);
-?>
-
-<div style="margin-top: 20px; padding: 15px; background-color: #e9ecef; border-radius: 8px; display: flex; justify-content: space-around; border: 1px solid #ddd;">
-    <div style="text-align: center;">
-        <span style="display: block; font-size: 14px; color: #666;">Total en Inventario</span>
-        <strong style="font-size: 20px; color: #28a745;"><?php echo $total_prendas; ?> piezas</strong>
-    </div>
-    <div style="text-align: center;">
-        <span style="display: block; font-size: 14px; color: #666;">Valor Total del Stock</span>
-        <strong style="font-size: 20px; color: #0056b3;">$<?php echo number_format($total_dinero, 2); ?></strong>
+    <!-- RESUMEN AUTOMÁTICO -->
+    <div class="resumen">
+        <span>Prendas: <?php echo $total_prendas; ?></span>
+        <span>Valor: $<?php echo number_format($total_dinero, 2); ?></span>
     </div>
 </div>
+
+<script>
+    function showErrorMessage(msg) {
+        const div = document.getElementById("errorMessage");
+        div.textContent = msg;
+        div.style.display = "block";
+        setTimeout(() => div.style.display = "none", 3000);
+    }
+
+    function activarEdicion(datos) {
+        const li = document.getElementById('item-' + datos.id);
+        li.style.flexDirection = "column";
+        li.innerHTML = `
+            <form action="index.php" method="post" style="width: 100%;">
+                <input type="hidden" name="id_editar" value="${datos.id}">
+                <input type="text" name="prenda" value="${datos.prenda}" class="todo-input" style="margin-bottom:5px">
+                <div style="display:flex; gap:5px; margin-bottom:10px">
+                    <input type="number" name="precio" value="${datos.precio}" class="todo-input" style="margin:0">
+                    <input type="number" name="stock" value="${datos.stock}" class="todo-input" style="margin:0">
+                    <input type="hidden" name="talla" value="${datos.talla}">
+                    <input type="hidden" name="color" value="${datos.color}">
+                </div>
+                <button type="submit" class="save-btn">Save</button>
+                <button type="button" class="delete-btn" onclick="location.reload()">X</button>
+            </form>
+        `;
+    }
+</script>
+
 </body>
 </html>
