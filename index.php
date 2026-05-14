@@ -40,9 +40,8 @@ $total_dinero = array_sum(array_column($lista_ropa, 'precio'));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MultiStock - UMC</title>
+    <title>MultiStock</title>
     <style>
-        /* CSS ORIGINAL DE TU COMPAÑERO */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body{ font-family: Arial, sans-serif; background: linear-gradient(135deg, blue, cyan); display: flex; justify-content: center; align-items: center; min-height: 100vh; color: #444; padding: 20px; }
         .container{ background: #ffffff; box-shadow: 0 8px 15px rgba(0,0,0,0.2); border-radius: 12px; padding: 30px; width: 100%; max-width: 500px; text-align: center; animation: fadeIn 0.5s ease-in-out; }
